@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "dev": "node scripts/copy-excalidraw-fonts.mjs && vite",
+    "build": "tsc -p tsconfig.app.json --noEmit && node scripts/copy-excalidraw-fonts.mjs && vite build",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "lint": "biome check .",
     "test": "vitest run",
@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource-variable/geist": "^5.3.0",
     "@kresliarska/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",

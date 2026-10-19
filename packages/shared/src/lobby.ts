@@ -28,11 +28,37 @@ export const memberSchema = z.object({
 
 export type Member = z.infer<typeof memberSchema>;
 
+export const profileSchema = memberSchema.pick({ name: true, color: true });
+
+export type Profile = z.infer<typeof profileSchema>;
+
+/** Client-side send cadence; the server limit below leaves headroom for jitter. */
+export const CURSOR_SEND_INTERVAL_MS = 50;
+export const CURSOR_RATE_LIMIT = { max: 40, windowMs: 1_000 } as const;
+
+/** Scene coordinates, so cursors stay put regardless of each viewer's pan and zoom. */
+const cursorSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  tool: z.enum(["pointer", "laser"]),
+  button: z.enum(["up", "down"]),
+});
+
+export type Cursor = z.infer<typeof cursorSchema>;
+
 export const lobbyClientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("join"),
     lobbyId: lobbyIdSchema,
     member: memberSchema,
+  }),
+  z.object({
+    type: z.literal("cursor"),
+    cursor: cursorSchema.nullable(),
+  }),
+  z.object({
+    type: z.literal("rename"),
+    profile: profileSchema,
   }),
 ]);
 
@@ -42,6 +68,11 @@ export const lobbyServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("presence"),
     members: z.array(memberSchema),
+  }),
+  z.object({
+    type: z.literal("cursor"),
+    clientId: z.uuid(),
+    cursor: cursorSchema.nullable(),
   }),
 ]);
 

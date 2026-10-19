@@ -137,6 +137,55 @@ describe("Lobby HTTP + WebSocket", () => {
     expect(await invalid.closed).toBe(LOBBY_CLOSE_CODES.invalid);
   });
 
+  it("relays cursors to other members only, under the sender's clientId", async () => {
+    const id = await createLobby();
+    const sender = await join(id, memberFor(1));
+    await sender.nextMessage();
+    const senderOtherTab = await join(id, memberFor(1));
+    await senderOtherTab.nextMessage();
+    await sender.nextMessage();
+    const viewer = await join(id, memberFor(2));
+    await viewer.nextMessage();
+    await sender.nextMessage();
+    await senderOtherTab.nextMessage();
+
+    const cursor = { x: 12, y: 34, tool: "pointer", button: "up" } as const;
+    sender.socket.send(JSON.stringify({ type: "cursor", cursor }));
+    expect(await viewer.nextMessage()).toEqual({
+      type: "cursor",
+      clientId: memberFor(1).clientId,
+      cursor,
+    });
+
+    viewer.socket.send(JSON.stringify({ type: "cursor", cursor: null }));
+    expect(await sender.nextMessage()).toEqual({
+      type: "cursor",
+      clientId: memberFor(2).clientId,
+      cursor: null,
+    });
+    expect((await senderOtherTab.nextMessage()).type).toBe("cursor");
+  });
+
+  it("broadcasts presence after a rename", async () => {
+    const id = await createLobby();
+    const client = await join(id, memberFor(1));
+    await client.nextMessage();
+
+    client.socket.send(
+      JSON.stringify({ type: "rename", profile: { name: "Calm Seal", color: "#0284c7" } }),
+    );
+    expect(await client.nextMessage()).toEqual({
+      type: "presence",
+      members: [{ ...memberFor(1), name: "Calm Seal", color: "#0284c7" }],
+    });
+  });
+
+  it("closes with 4400 when a message arrives before join", async () => {
+    const client = await connect();
+    client.socket.send(JSON.stringify({ type: "cursor", cursor: null }));
+    expect(await client.closed).toBe(LOBBY_CLOSE_CODES.invalid);
+  });
+
   it("closes with 4409 when the lobby is full", async () => {
     const id = await createLobby();
     for (let index = 0; index < LOBBY_MAX_MEMBERS; index += 1) {

@@ -1,22 +1,24 @@
-import { lobbyIdSchema, type Member } from "@kresliarska/shared";
-import { useState } from "react";
+import type { ExcalidrawImperativeAPI, ExcalidrawProps } from "@excalidraw/excalidraw/types";
+import {
+  CURSOR_SEND_INTERVAL_MS,
+  type Cursor,
+  lobbyIdSchema,
+  type Profile,
+} from "@kresliarska/shared";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
-import { Badge } from "@/components/ui/badge";
+import { PresenceOverlay } from "@/components/presence-overlay";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLobbyPresence } from "@/hooks/use-lobby-presence";
-import { loadOrCreateIdentity } from "@/lib/identity";
+import { useLobbyConnection } from "@/hooks/use-lobby-connection";
+import type { Theme } from "@/hooks/use-system-theme";
+import { type CursorRenderer, createCursorRenderer } from "@/lib/cursor-renderer";
+import { loadOrCreateIdentity, saveIdentity } from "@/lib/identity";
 import type { LobbyConnectionStatus } from "@/lib/lobby-socket";
-import { cn } from "@/lib/utils";
+import { throttle } from "@/lib/throttle";
 
-const STATUS_LABEL: Record<LobbyConnectionStatus, string> = {
-  connecting: "Connecting",
-  live: "Live",
-  reconnecting: "Reconnecting",
-  not_found: "Not found",
-  full: "Full",
-  invalid: "Error",
-};
+const LobbyBoard = lazy(() =>
+  import("@/components/lobby-board").then((module) => ({ default: module.LobbyBoard })),
+);
 
 const NOT_FOUND_MESSAGE = "This lobby doesn't exist or has expired.";
 
@@ -25,6 +27,8 @@ const TERMINAL_MESSAGE: Partial<Record<LobbyConnectionStatus, string>> = {
   full: "This lobby is full.",
   invalid: "Something went wrong joining this lobby.",
 };
+
+type PointerUpdate = Parameters<NonNullable<ExcalidrawProps["onPointerUpdate"]>>[0];
 
 const LobbyMessage = ({ message }: { message: string }) => (
   <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
@@ -35,76 +39,97 @@ const LobbyMessage = ({ message }: { message: string }) => (
   </main>
 );
 
-const CopyLinkButton = () => {
-  const [copied, setCopied] = useState(false);
+const Lobby = ({ lobbyId, theme }: { lobbyId: string; theme: Theme }) => {
+  const [self, setSelf] = useState(loadOrCreateIdentity);
+  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const rendererRef = useRef<CursorRenderer | null>(null);
 
-  const handleCopy = async (): Promise<void> => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1_500);
+  const handleRemoteCursor = useCallback((clientId: string, cursor: Cursor | null) => {
+    rendererRef.current?.setCursor(clientId, cursor);
+  }, []);
+
+  const { status, members, send } = useLobbyConnection(lobbyId, self, handleRemoteCursor);
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    const renderer = createCursorRenderer({
+      render: (collaborators) => api.updateScene({ collaborators }),
+    });
+    rendererRef.current = renderer;
+    return () => {
+      renderer.dispose();
+      rendererRef.current = null;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    if (api) {
+      rendererRef.current?.setMembers(members);
+    }
+  }, [api, members]);
+
+  const sendCursor = useMemo(
+    () => throttle((cursor: Cursor) => send({ type: "cursor", cursor }), CURSOR_SEND_INTERVAL_MS),
+    [send],
+  );
+
+  useEffect(() => sendCursor.cancel, [sendCursor]);
+
+  const handlePointerUpdate = useCallback(
+    ({ pointer, button }: PointerUpdate) => {
+      sendCursor({ x: pointer.x, y: pointer.y, tool: pointer.tool, button });
+    },
+    [sendCursor],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    sendCursor.cancel();
+    send({ type: "cursor", cursor: null });
+  }, [send, sendCursor]);
+
+  const handleRename = (profile: Profile): void => {
+    const next = { ...self, ...profile };
+    saveIdentity(next);
+    setSelf(next);
+    send({ type: "rename", profile });
   };
 
-  return (
-    <Button variant="outline" size="sm" className="w-24" onClick={() => void handleCopy()}>
-      {copied ? "Copied" : "Copy link"}
-    </Button>
-  );
-};
-
-const Lobby = ({ lobbyId, self }: { lobbyId: string; self: Member }) => {
-  const { status, members } = useLobbyPresence(lobbyId, self);
   const terminalMessage = TERMINAL_MESSAGE[status];
-
   if (terminalMessage) {
     return <LobbyMessage message={terminalMessage} />;
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="flex items-center justify-between gap-2">
-          <CardTitle className="font-mono">{lobbyId}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant={status === "live" ? "default" : "secondary"} className="w-24">
-              {STATUS_LABEL[status]}
-            </Badge>
-            <CopyLinkButton />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ul className="flex flex-col gap-2">
-            {members.map((member) => (
-              <li key={member.clientId} className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className="size-3 rounded-full"
-                  style={{ backgroundColor: member.color }}
-                />
-                <span>{member.name}</span>
-                <span
-                  className={cn(
-                    "text-muted-foreground text-sm",
-                    member.clientId !== self.clientId && "invisible",
-                  )}
-                >
-                  (you)
-                </span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+    <main className="relative h-dvh w-full overflow-hidden">
+      <div className="absolute inset-0 isolate">
+        <Suspense fallback={<div className="size-full bg-background" />}>
+          <LobbyBoard
+            theme={theme}
+            onApi={setApi}
+            onPointerUpdate={handlePointerUpdate}
+            onPointerLeave={handlePointerLeave}
+          />
+        </Suspense>
+      </div>
+      <PresenceOverlay
+        lobbyId={lobbyId}
+        status={status}
+        members={members}
+        self={self}
+        onRename={handleRename}
+      />
     </main>
   );
 };
 
-export const LobbyScreen = () => {
+export const LobbyScreen = ({ theme }: { theme: Theme }) => {
   const { lobbyId } = useParams();
-  const [self] = useState(loadOrCreateIdentity);
 
   if (!lobbyId || !lobbyIdSchema.safeParse(lobbyId).success) {
     return <LobbyMessage message={NOT_FOUND_MESSAGE} />;
   }
 
-  return <Lobby lobbyId={lobbyId} self={self} />;
+  return <Lobby lobbyId={lobbyId} theme={theme} />;
 };

@@ -15,12 +15,16 @@ const readStoredIdentity = (storage: Storage): Member | undefined => {
   }
 };
 
+export const saveIdentity = (identity: Member, storage: Storage = localStorage): void => {
+  storage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+};
+
 export const loadOrCreateIdentity = (storage: Storage = localStorage): Member => {
   const stored = readStoredIdentity(storage);
   if (stored) {
     return stored;
   }
   const identity: Member = { clientId: crypto.randomUUID(), ...generateIdentity() };
-  storage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+  saveIdentity(identity, storage);
   return identity;
 };

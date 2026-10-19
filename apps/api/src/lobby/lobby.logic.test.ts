@@ -2,6 +2,7 @@ import { LOBBY_MAX_MEMBERS, lobbyIdSchema, type Member } from "@kresliarska/shar
 import { describe, expect, it } from "vitest";
 import {
   addMemberSocket,
+  consumeRate,
   generateLobbyId,
   type LobbyMembers,
   listMembers,
@@ -22,6 +23,19 @@ describe("generateLobbyId", () => {
   it("skips bytes that would bias the alphabet", () => {
     const id = generateLobbyId((size) => new Uint8Array(size).fill(1).fill(255, 0, 8));
     expect(id).toBe("11111111");
+  });
+});
+
+describe("consumeRate", () => {
+  const limit = { max: 2, windowMs: 1_000 };
+
+  it("allows up to max events per window, then resets", () => {
+    const first = consumeRate(undefined, 0, limit);
+    const second = consumeRate(first.window, 100, limit);
+    const third = consumeRate(second.window, 200, limit);
+    expect([first.allowed, second.allowed, third.allowed]).toEqual([true, true, false]);
+
+    expect(consumeRate(third.window, 1_000, limit).allowed).toBe(true);
   });
 });
 

@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export { generateIdentity, IDENTITY_COLORS } from "./identity.js";
 export {
+  CURSOR_RATE_LIMIT,
+  CURSOR_SEND_INTERVAL_MS,
+  type Cursor,
   LOBBIES_ROUTE,
   LOBBY_CLOSE_CODES,
   LOBBY_ID_LENGTH,
@@ -15,7 +18,9 @@ export {
   lobbyServerMessageSchema,
   type Member,
   memberSchema,
+  type Profile,
   parseLobbyResponse,
+  profileSchema,
 } from "./lobby.js";
 
 export const HEALTH_ROUTE = "/api/health";

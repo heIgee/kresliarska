@@ -1,4 +1,4 @@
-import { type LobbyServerMessage, type Member } from "@kresliarska/shared";
+import { type LobbyServerMessage, type Member, type Profile } from "@kresliarska/shared";
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
 import {
   addMemberSocket,
@@ -59,18 +59,29 @@ export class LobbyService implements OnModuleDestroy {
     }
   }
 
+  rename(lobbyId: string, clientId: string, profile: Profile): void {
+    const entry = this.lobbies.get(lobbyId)?.members.get(clientId);
+    if (!entry) {
+      return;
+    }
+    entry.member = { ...entry.member, ...profile };
+  }
+
   broadcastPresence(lobbyId: string): void {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) {
       return;
     }
-    const message: LobbyServerMessage = { type: "presence", members: listMembers(lobby.members) };
-    const payload = JSON.stringify(message);
-    for (const entry of lobby.members.values()) {
-      for (const socket of entry.sockets) {
-        socket.send(payload);
-      }
+    this.send(lobby, { type: "presence", members: listMembers(lobby.members) });
+  }
+
+  /** Sends to every member except the sender, including the sender's other tabs. */
+  relayFrom(lobbyId: string, fromClientId: string, message: LobbyServerMessage): void {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) {
+      return;
     }
+    this.send(lobby, message, fromClientId);
   }
 
   onModuleDestroy(): void {
@@ -78,6 +89,18 @@ export class LobbyService implements OnModuleDestroy {
       clearTimeout(lobby.emptyTimer);
     }
     this.lobbies.clear();
+  }
+
+  private send(lobby: Lobby, message: LobbyServerMessage, excludeClientId?: string): void {
+    const payload = JSON.stringify(message);
+    for (const [clientId, entry] of lobby.members) {
+      if (clientId === excludeClientId) {
+        continue;
+      }
+      for (const socket of entry.sockets) {
+        socket.send(payload);
+      }
+    }
   }
 
   private scheduleEmptyCleanup(id: string, lobby: Lobby): void {

@@ -7,6 +7,9 @@ build/
 out/
 *.tsbuildinfo
 
+# Copied from node_modules by apps/web/scripts/copy-excalidraw-fonts.mjs
+apps/web/public/fonts/
+
 # Turborepo
 .turbo/
 

@@ -24,7 +24,9 @@ pnpm dev
 
 Or separately: `pnpm dev:api`, `pnpm dev:web`.
 
-Create a lobby on the home page and share its link (`/l/<code>`), or join by code. The lobby page shows who's connected; the API keeps lobbies in memory and drops one 5 minutes after it empties.
+Create a lobby on the home page and share its link (`/l/<code>`), or join by code. The lobby page is a full-screen Excalidraw board (drawings are local until sync lands) with live cursors and who's connected in the corner — click your own avatar to change name and color. The API keeps lobbies in memory and drops one 5 minutes after it empties.
+
+Excalidraw fonts are served locally: `dev` and `build` in `apps/web` copy them from `node_modules` into `apps/web/public/fonts` (gitignored).
 
 ## API surface
 
@@ -32,7 +34,7 @@ Routes and payload schemas live in `packages/shared/src`.
 
 - `POST /api/lobbies` — create a lobby
 - `GET /api/lobbies/:id` — check a lobby exists
-- `WS /api/ws/lobby` — join + presence
+- `WS /api/ws/lobby` — join, presence, cursors (relayed, never stored, rate-limited per socket), rename
 - `GET /api/health`
 
 ## Scripts

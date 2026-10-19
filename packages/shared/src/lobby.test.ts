@@ -32,6 +32,29 @@ describe("lobbyClientMessageSchema", () => {
     expect(lobbyClientMessageSchema.parse(message)).toEqual(message);
   });
 
+  it("parses cursor updates, including leaving the canvas", () => {
+    const cursor = { x: 10.5, y: -3, tool: "pointer", button: "up" };
+    expect(lobbyClientMessageSchema.parse({ type: "cursor", cursor })).toEqual({
+      type: "cursor",
+      cursor,
+    });
+    expect(lobbyClientMessageSchema.parse({ type: "cursor", cursor: null }).type).toBe("cursor");
+  });
+
+  it("rejects non-finite cursor coordinates", () => {
+    const cursor = { x: Number.POSITIVE_INFINITY, y: 0, tool: "pointer", button: "up" };
+    expect(lobbyClientMessageSchema.safeParse({ type: "cursor", cursor }).success).toBe(false);
+  });
+
+  it("parses a rename with a valid profile only", () => {
+    const profile = { name: "Calm Seal", color: "#0284c7" };
+    expect(lobbyClientMessageSchema.safeParse({ type: "rename", profile }).success).toBe(true);
+    expect(
+      lobbyClientMessageSchema.safeParse({ type: "rename", profile: { ...profile, name: "" } })
+        .success,
+    ).toBe(false);
+  });
+
   it("rejects unknown message types", () => {
     expect(lobbyClientMessageSchema.safeParse({ type: "leave" }).success).toBe(false);
   });

@@ -59,5 +59,22 @@ export const removeMemberSocket = <S>(
   return true;
 };
 
+export type RateWindow = { startedAt: number; count: number };
+
+/** Fixed-window limiter: returns whether this event fits, plus the next window state. */
+export const consumeRate = (
+  window: RateWindow | undefined,
+  now: number,
+  limit: { max: number; windowMs: number },
+): { allowed: boolean; window: RateWindow } => {
+  if (!window || now - window.startedAt >= limit.windowMs) {
+    return { allowed: true, window: { startedAt: now, count: 1 } };
+  }
+  if (window.count >= limit.max) {
+    return { allowed: false, window };
+  }
+  return { allowed: true, window: { startedAt: window.startedAt, count: window.count + 1 } };
+};
+
 export const listMembers = <S>(members: LobbyMembers<S>): Member[] =>
   Array.from(members.values(), (entry) => entry.member);

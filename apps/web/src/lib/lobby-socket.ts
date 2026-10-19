@@ -1,4 +1,5 @@
 import {
+  type Cursor,
   LOBBY_CLOSE_CODES,
   LOBBY_WS_ROUTE,
   type LobbyClientMessage,
@@ -52,29 +53,43 @@ const lobbyWsUrl = (): string => {
 
 type ConnectLobbyOptions = {
   lobbyId: string;
-  member: Member;
+  /** Read on every (re)connect so a rename survives reconnects. */
+  getMember: () => Member;
   onStatus: (status: LobbyConnectionStatus) => void;
   onMembers: (members: Member[]) => void;
+  onCursor: (clientId: string, cursor: Cursor | null) => void;
 };
 
-/** Opens the lobby socket and keeps it alive; returns a disposer. */
+export type LobbyConnection = {
+  /** Dropped while disconnected; the join on reconnect carries the latest identity. */
+  send: (message: LobbyClientMessage) => void;
+  dispose: () => void;
+};
+
+/** Opens the lobby socket and keeps it alive. */
 export const connectLobby = ({
   lobbyId,
-  member,
+  getMember,
   onStatus,
   onMembers,
-}: ConnectLobbyOptions): (() => void) => {
+  onCursor,
+}: ConnectLobbyOptions): LobbyConnection => {
   let socket: WebSocket | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let attempt = 0;
   let disposed = false;
 
+  const send = (message: LobbyClientMessage): void => {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(message));
+    }
+  };
+
   const open = (): void => {
     socket = new WebSocket(lobbyWsUrl());
 
     socket.addEventListener("open", () => {
-      const join: LobbyClientMessage = { type: "join", lobbyId, member };
-      socket?.send(JSON.stringify(join));
+      send({ type: "join", lobbyId, member: getMember() });
     });
 
     socket.addEventListener("message", (event) => {
@@ -83,6 +98,10 @@ export const connectLobby = ({
       }
       const message = parseServerMessage(event.data);
       if (!message) {
+        return;
+      }
+      if (message.type === "cursor") {
+        onCursor(message.clientId, message.cursor);
         return;
       }
       attempt = 0;
@@ -108,9 +127,12 @@ export const connectLobby = ({
   onStatus("connecting");
   open();
 
-  return () => {
-    disposed = true;
-    clearTimeout(reconnectTimer);
-    socket?.close();
+  return {
+    send,
+    dispose: () => {
+      disposed = true;
+      clearTimeout(reconnectTimer);
+      socket?.close();
+    },
   };
 };
