@@ -7,7 +7,7 @@ if (existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
-const DEFAULT_PORT = 3000;
+const DEFAULT_PORT = 3200;
 
 export type ApiConfig = {
   port: number;

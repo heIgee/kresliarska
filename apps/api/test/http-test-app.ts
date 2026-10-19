@@ -1,4 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
+import { WsAdapter } from "@nestjs/platform-ws";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { AppModule } from "../src/app.module.js";
 import type { ApiConfig } from "../src/config.js";
@@ -13,6 +14,7 @@ export const createHttpTestApp = async (config: ApiConfig): Promise<INestApplica
     .compile();
 
   const app = moduleRef.createNestApplication();
+  app.useWebSocketAdapter(new WsAdapter(app));
   await app.init();
   return app;
 };

@@ -1,6 +1,7 @@
 {
   "name": "kresliarska",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -17,7 +18,7 @@
     "knip": "knip",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "dev": "pnpm --filter @kresliarska/shared build && concurrently -k \"pnpm --filter api dev\" \"wait-on tcp:127.0.0.1:3000 && pnpm --filter web dev\"",
+    "dev": "pnpm --filter @kresliarska/shared build && concurrently -k \"pnpm --filter api dev\" \"wait-on tcp:127.0.0.1:3200 && pnpm --filter web dev\"",
     "dev:api": "pnpm --filter @kresliarska/shared build && pnpm --filter api dev",
     "dev:web": "pnpm --filter @kresliarska/shared build && pnpm --filter web dev"
   },

@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 const apiProxy = {
-  target: "http://127.0.0.1:3000",
+  target: "http://127.0.0.1:3200",
   changeOrigin: true,
   ws: true,
 };
@@ -20,6 +20,8 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5175,
+    strictPort: true,
     proxy: {
       "/api": apiProxy,
     },
