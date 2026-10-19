@@ -1,0 +1,35 @@
+{
+  "name": "kresliarska",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "prepare": "lefthook install",
+    "typecheck": "turbo run typecheck",
+    "build": "turbo run build",
+    "check": "turbo run typecheck lint build",
+    "verify": "turbo run typecheck lint build && pnpm test:coverage && pnpm knip",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "knip": "knip",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "dev": "pnpm --filter @kresliarska/shared build && concurrently -k \"pnpm --filter api dev\" \"wait-on tcp:127.0.0.1:3000 && pnpm --filter web dev\"",
+    "dev:api": "pnpm --filter @kresliarska/shared build && pnpm --filter api dev",
+    "dev:web": "pnpm --filter @kresliarska/shared build && pnpm --filter web dev"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@vitest/coverage-v8": "^5.0.5",
+    "concurrently": "^10.0.6",
+    "knip": "^6.42.0",
+    "lefthook": "^2.2.2",
+    "turbo": "^2.11.9",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5",
+    "wait-on": "^9.5.1"
+  }
+}

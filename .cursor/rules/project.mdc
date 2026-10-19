@@ -1,0 +1,105 @@
+---
+description: Cross-cutting conventions for the kresliarska monorepo
+alwaysApply: true
+---
+
+# Kresliarska Monorepo
+
+## Agent Communication
+
+- Terse, technical, no-fluff responses.
+- Drop filler, pleasantries, hedging.
+- Direct answers, code snippets, exact commands only. No yapping.
+
+## Environment & Tooling
+
+- OS: Windows. Terminal: PowerShell. No Bash-specific syntax.
+
+## Repo map
+
+- `apps/api` — NestJS realtime API. `apps/web` — React + Vite. `packages/shared` — Zod contracts, built before dev.
+- Env samples are per app: `apps/api/.env.example`.
+
+## Runtime versions
+
+- Never pin or cite Node, pnpm, or dependency versions from memory.
+- Repo wins: `.node-version` (CI resolves Node from it), `package.json` (`engines`, `packageManager`), lockfile.
+- Local: `node -v`, `pnpm -v` when tooling targets this machine.
+- Upstream: `npm view <pkg> version` before greenfield defaults or version advice.
+- After verify: new production work uses Active LTS; not EOL majors unless a dependency forces it.
+- If not verified, say so — do not invent a version.
+
+## Before changing code
+
+- Read sibling files in app/package; match naming, layout, patterns.
+- Smallest correct diff. No refactor/reformat outside scope.
+- Stay inside requested app/package.
+- Packages disagree → follow local package. Don't "standardize" unasked.
+
+## Simplicity
+
+- Prefer the fix with less code: delete or simplify before adding hooks, listeners, observers, or dependencies.
+- Optional presentation that misbehaves → remove it; do not add logic to preserve it.
+- A plan describes intent, not a mandatory design. A simpler approach that meets the goal is fine — note the change briefly.
+- New dependency or runtime machinery needs a concrete reason existing code cannot cover it. No good reason → do not add it.
+- Passing CI does not justify extra machinery. Correct and small beats correct and elaborate.
+
+## Docs and comments
+
+- No session-specific fixes, version pins, workarounds, or chat context in repo files.
+- Docs state what to run and where config lives — not how we debugged it once.
+- Behavior, env, or CI changes → update `README.md` in the **same change** when relevant. Do not wait to be asked.
+- README edits stay **concise**: onboarding, commands, where config lives. No overspecific facts — point to `.env.example` or code instead.
+- `ROADMAP.md` for planned work only; remove or move items when shipped.
+- Comments: why non-obvious, not what the code already says.
+
+## Monorepo discipline
+
+- Shared code → shared packages. No copy-paste across apps.
+- `packages/*` never imports `apps/*`. Apps never import each other directly.
+- Every socket/HTTP payload has a Zod schema in `packages/shared`; validate at the boundary.
+- Single pnpm workspace, single `pnpm-lock.yaml`. No npm/yarn artifacts.
+- Flag new dependencies before adding. No duplicate library where one exists.
+- Dependency additions: Always `pnpm --filter <workspace-name> add <pkg>`. Never `npm install`.
+
+## Git
+
+- Never commit, stage, or push. User runs all git ops.
+- Active task on X — don't touch unrelated Y (other apps, packages, or files) for commit separation.
+
+## Quality bar
+
+- Applies to **all** repo changes — code, workflows, config.
+- Complete, working changes for requested scope only. No placeholders or stubs unless asked; include the imports, types, and wiring needed to run.
+- Shared type/API contract changed → update callers, typecheck before done.
+- Passing build/lint/typecheck is necessary, not sufficient.
+- **Root cause only.** A symptom fix makes the check pass without removing why it failed — wrong scope, skip/bypass flags, silencing, loosening. Forbidden, including `@ts-ignore` / `@ts-expect-error`, blanket `biome-ignore`, commented-out logic, deleted validation, stub returns, config loosening (`strict: false`, `skipLibCheck` hacks), unrelated `// @ts-nocheck`, and the same class of bypass in workflows/config.
+- Proper fix blocked or out of scope → **stop and report**. Do not land a workaround.
+
+## Commit-ready (agent)
+
+Before calling work **done**, **QA pass**, or **commit-ready** — run full local CI and fix until green:
+
+```powershell
+pnpm verify
+```
+
+Mirrors `.github/workflows/ci.yml`. Exit 0 required. Re-run after fixes.
+
+| Step | Command (inside `pnpm verify`) |
+|---|---|
+| Build gate | `turbo run typecheck lint build` |
+| Tests + coverage | `pnpm test:coverage` |
+| Deps/exports | `pnpm knip` |
+
+- Run it once at the end, not per edit; `pnpm check` is the inner loop.
+- Partial checks (`pnpm test`, `pnpm check`, lint-only, typecheck-only) and the pre-commit hook do not substitute for it.
+- Report failures with command + error excerpt. Do not suggest commit until `pnpm verify` passes.
+
+**Dependency hygiene** (CI catches these; verify in the same pass):
+
+- Direct `import` of a package → declare it in **that** workspace `package.json`. Never rely on hoisting from siblings.
+
+## Env & secrets
+
+- Never commit `.env` or hardcode secrets. New config → existing env-loading pattern (`apps/api/src/config.ts`).

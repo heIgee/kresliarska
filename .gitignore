@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+test-results/
+playwright-report/
+
+# Caches
+.cache/
+*.cache
+
+# Vite
+vite.config.ts.timestamp-*
+
+# NestJS
+*.pid
+*.pid.lock
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+
+# Editors
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.sw?
+
+# Package managers
+package-lock.json
+yarn.lock
+
+# Misc
+*.local
+*.pem
+.tmp-*
+
+# Markdown — ignore by default
+*.md
+!README.md
+!ROADMAP.md
